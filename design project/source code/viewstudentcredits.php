@@ -23,7 +23,21 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Fetch all students and their certificate details
+// Fetch the staff name using their email
+$staff_query = "SELECT name FROM staff WHERE email = ?";
+$stmt = $conn->prepare($staff_query);
+$stmt->bind_param("s", $staff_email);
+$stmt->execute();
+$staff_result = $stmt->get_result();
+
+if ($staff_result->num_rows === 0) {
+    echo "Staff member not found.";
+    exit();
+}
+
+$staff_name = $staff_result->fetch_assoc()['name'];
+
+// Fetch students assigned to this mentor (staff)
 $sql = "SELECT 
             students.name AS student_name, 
             students.department AS student_department,
@@ -33,9 +47,14 @@ $sql = "SELECT
             SUM(certificates.credits_awarded) AS total_credits
         FROM students
         LEFT JOIN certificates ON students.register_no = certificates.register_no
+        INNER JOIN mentor_student ON students.register_no = mentor_student.student_register_no
+        WHERE mentor_student.mentor_name = ?
         GROUP BY students.register_no";
 
-$result = $conn->query($sql);
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $staff_name);
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -137,5 +156,6 @@ $result = $conn->query($sql);
 </html>
 
 <?php
+$stmt->close();
 $conn->close();
 ?>
